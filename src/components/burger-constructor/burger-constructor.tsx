@@ -17,7 +17,7 @@ export const BurgerConstructor: FC = () => {
   const constructorItems = useSelector((state) => state.burgerConstructor);
 
   const bun = constructorItems.bun;
-  const ingredients = constructorItems.ingredients;
+  const ingredients = constructorItems.ingredients ?? [];
 
   const { orderRequest, currentOrder } = useSelector((state) => state.orders);
   const isAuthenticated = useSelector((state) => state.user.isAuth);
