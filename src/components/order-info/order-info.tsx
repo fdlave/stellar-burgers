@@ -1,66 +1,99 @@
-import { FC, useMemo } from 'react';
+import { FC, useMemo, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { useSelector, useDispatch } from '../../services/store';
 import { Preloader } from '../ui/preloader';
 import { OrderInfoUI } from '../ui/order-info';
 import { TIngredient } from '@utils-types';
+import {
+  fetchOrderByNumber,
+  clearCurrentOrder
+} from '../../services/slices/ordersSlice';
 
 export const OrderInfo: FC = () => {
-  /** TODO: взять переменные orderData и ingredients из стора */
-  const orderData = {
-    createdAt: '',
-    ingredients: [],
-    _id: '',
-    status: '',
-    name: '',
-    updatedAt: 'string',
-    number: 0
-  };
+  const { number } = useParams<{ number: string }>();
+  const dispatch = useDispatch();
 
-  const ingredients: TIngredient[] = [];
+  const { ingredients, loading: ingredientsLoading } = useSelector(
+    (state) => state.ingredients
+  );
+  const { currentOrder, isLoading, error } = useSelector(
+    (state) => state.orders
+  );
 
-  /* Готовим данные для отображения */
-  const orderInfo = useMemo(() => {
-    if (!orderData || !ingredients.length) return null;
-
-    const date = new Date(orderData.createdAt);
-
-    type TIngredientsWithCount = {
-      [key: string]: TIngredient & { count: number };
+  useEffect(() => {
+    return () => {
+      dispatch(clearCurrentOrder());
     };
+  }, [dispatch]);
 
-    const ingredientsInfo = orderData.ingredients.reduce(
-      (acc: TIngredientsWithCount, item) => {
-        if (!acc[item]) {
-          const ingredient = ingredients.find((ing) => ing._id === item);
-          if (ingredient) {
-            acc[item] = {
-              ...ingredient,
-              count: 1
-            };
-          }
+  useEffect(() => {
+    if (!number) return;
+
+    const orderNumber = Number(number);
+    if (isNaN(orderNumber)) return;
+
+    if (!currentOrder || currentOrder.number !== orderNumber) {
+      dispatch(fetchOrderByNumber(orderNumber));
+    }
+  }, [dispatch, number, currentOrder]);
+
+  const orderInfo = useMemo(() => {
+    if (!currentOrder || !ingredients.length || ingredientsLoading) return null;
+
+    const date = new Date(currentOrder.createdAt);
+
+    const ingredientsMap = new Map<string, TIngredient>();
+    ingredients.forEach((ing: TIngredient) => {
+      ingredientsMap.set(ing._id, ing);
+    });
+
+    type TIngredientsWithCount = Record<
+      string,
+      TIngredient & { count: number }
+    >;
+    const ingredientsInfo: TIngredientsWithCount = {};
+
+    currentOrder.ingredients.forEach((ingredientId: string) => {
+      const ingredient = ingredientsMap.get(ingredientId);
+      if (ingredient) {
+        if (!ingredientsInfo[ingredientId]) {
+          ingredientsInfo[ingredientId] = {
+            ...ingredient,
+            count: 1
+          };
         } else {
-          acc[item].count++;
+          ingredientsInfo[ingredientId].count++;
         }
-
-        return acc;
-      },
-      {}
-    );
+      }
+    });
 
     const total = Object.values(ingredientsInfo).reduce(
-      (acc, item) => acc + item.price * item.count,
+      (sum, item) => sum + item.price * item.count,
       0
     );
 
     return {
-      ...orderData,
+      ...currentOrder,
       ingredientsInfo,
       date,
       total
     };
-  }, [orderData, ingredients]);
+  }, [currentOrder, ingredients, ingredientsLoading]);
+
+  if (isLoading || ingredientsLoading) {
+    return <Preloader />;
+  }
+
+  if (error) {
+    return (
+      <div className='text text_type_main-default text_color_error'>
+        Ошибка загрузки заказа: {error}
+      </div>
+    );
+  }
 
   if (!orderInfo) {
-    return <Preloader />;
+    return <div className='text text_type_main-default'>Заказ не найден</div>;
   }
 
   return <OrderInfoUI orderInfo={orderInfo} />;
