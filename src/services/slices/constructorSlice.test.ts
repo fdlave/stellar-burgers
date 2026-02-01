@@ -1,5 +1,6 @@
 import reducer, {
   addIngredient,
+  addBun,
   removeIngredient,
   moveIngredient,
   clearConstructor
@@ -53,6 +54,16 @@ describe('burgerConstructor slice', () => {
     image_large: '',
     image_mobile: ''
   };
+
+  it('должен добавлять булку в конструктор', () => {
+    const initialState = reducer(undefined, { type: 'unknown' });
+
+    const state = reducer(initialState, addBun(bun));
+
+    expect(state.bun).toEqual(bun);
+    expect(state.ingredients).toHaveLength(0);
+  });
+
 
   it('должен добавить начинку', () => {
     const state = reducer(undefined, addIngredient(filling1));
